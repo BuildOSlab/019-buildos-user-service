@@ -26,6 +26,17 @@ class UserCreateRequest(BaseModel):
     language: str = Field(default="en", max_length=20)
 
 
+class UserUpdateRequest(BaseModel):
+    """Request to update the authenticated user's account."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+
 class UserCreateResponse(BaseModel):
     """Internal user creation response."""
 
@@ -98,3 +109,4 @@ class UserDetailResponse(UserResponse):
 
     profile: Any | None = None
     identities: list[ResolvedIdentity] = Field(default_factory=list)
+
