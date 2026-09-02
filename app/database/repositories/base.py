@@ -3,7 +3,7 @@ BuildOS User Service
 Base Database Repository
 """
 
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 from uuid import UUID
 
 from sqlalchemy import select
@@ -23,8 +23,9 @@ class BaseRepository(Generic[ModelT]):
 
     def get_by_id(self, record_id: UUID) -> ModelT | None:
         """Return a record by its UUID primary key."""
-        model_id = self.model.id
-        statement = select(self.model).where(model_id == record_id)
+        model: Any = self.model
+        model_id = model.id
+        statement = select(model).where(model_id == record_id)
         return self.db.scalar(statement)
 
     def create(self, instance: ModelT) -> ModelT:
