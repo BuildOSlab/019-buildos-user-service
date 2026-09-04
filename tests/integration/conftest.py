@@ -1,30 +1,38 @@
+"""
+Integration test fixtures for the BuildOS User Service.
+"""
+
 import uuid
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.database.models.user import User
 from app.database.session import SESSION_LOCAL
 from app.main import app
 
 INTERNAL_HEADERS = {
-    "Authorization": "Bearer change-me-in-production",
+    "Authorization": f"Bearer {settings.internal_api_key}",
     "X-Service-ID": "buildos-auth-service",
 }
 
 
 @pytest.fixture
 def client():
+    """Provide a FastAPI test client for integration tests."""
     return TestClient(app)
 
 
 @pytest.fixture
 def internal_headers():
+    """Provide authenticated internal service headers."""
     return INTERNAL_HEADERS.copy()
 
 
 @pytest.fixture
 def registration_payload():
+    """Provide a unique valid payload for user registration tests."""
     unique = uuid.uuid4().hex[:10]
 
     # Use a valid numeric Nigerian mobile number.
@@ -45,9 +53,11 @@ def registration_payload():
 
 @pytest.fixture
 def cleanup_user():
+    """Register created user IDs and remove them after each test."""
     created_user_ids = []
 
     def register(user_id):
+        """Track a user ID for cleanup after the test."""
         created_user_ids.append(user_id)
 
     yield register

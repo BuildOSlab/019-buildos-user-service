@@ -142,4 +142,3 @@ class User(Base):
             f"<User public_id={self.public_id} "
             f"status={self.status}>"
         )
-    

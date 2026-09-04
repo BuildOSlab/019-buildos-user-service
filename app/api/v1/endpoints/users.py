@@ -74,4 +74,3 @@ def update_current_user(
         raise
 
     return UserResponse.model_validate(user)
-

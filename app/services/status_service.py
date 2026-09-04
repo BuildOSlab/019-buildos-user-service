@@ -3,6 +3,7 @@ BuildOS User Service
 User status lifecycle business logic.
 """
 
+import asyncio
 from datetime import UTC, datetime
 from typing import ClassVar
 from uuid import UUID
@@ -29,6 +30,7 @@ from app.database.repositories.status_history_repository import (
     StatusHistoryRepository,
 )
 from app.database.repositories.user_repository import UserRepository
+from app.integrations.auth_service import AuthServiceClient
 
 
 class StatusService:
@@ -70,11 +72,16 @@ class StatusService:
         USER_STATUS_DELETED: set(),
     }
 
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        auth_client: AuthServiceClient | None = None,
+    ) -> None:
         """Initialize the status service."""
         self.db = db
         self.users = UserRepository(db)
         self.history = StatusHistoryRepository(db)
+        self.auth_client = auth_client or AuthServiceClient()
 
     def get_status(self, user_id: UUID) -> User:
         """Return the current user status."""
@@ -149,6 +156,25 @@ class StatusService:
             reason=reason,
             actor_id=actor_id,
         )
+
+        # Notify the Auth Service asynchronously after the
+        # user status transition has completed successfully.
+        if self.auth_client:
+            try:
+                asyncio.get_running_loop().create_task(
+                    self.auth_client.update_user_status(
+                        user_id=user.id,
+                        status=normalized_status,
+                        is_active=(
+                            normalized_status == USER_STATUS_ACTIVE
+                        ),
+                    )
+                )
+            except RuntimeError:
+                # No running event loop. The user status transition
+                # itself has already succeeded, so do not fail it
+                # because the cross-service notification cannot run.
+                pass
 
         return user
 

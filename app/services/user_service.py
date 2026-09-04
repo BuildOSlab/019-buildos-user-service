@@ -70,29 +70,12 @@ class UserService:
 
         The caller owns the transaction and must commit or rollback.
         """
-        email = (
-            normalize_email(request.email)
-            if request.email is not None
-            else None
-        )
-        phone = (
-            normalize_phone(request.phone)
-            if request.phone is not None
-            else None
-        )
-        username = (
-            normalize_username(request.username)
-            if request.username is not None
-            else None
-        )
-
-        if email is None and phone is None and username is None:
-            raise ValueError("At least one identity is required.")
+        identity_values = self._prepare_identities(request)
 
         normalized_payload = {
-            "email": email,
-            "phone": phone,
-            "username": username,
+            "email": identity_values[0][1],
+            "phone": identity_values[1][1],
+            "username": identity_values[2][1],
             "first_name": request.first_name,
             "last_name": request.last_name,
             "display_name": request.display_name,
@@ -116,25 +99,7 @@ class UserService:
 
             return existing_user
 
-        identity_values = (
-            (IDENTITY_TYPE_EMAIL, email),
-            (IDENTITY_TYPE_PHONE, phone),
-            (IDENTITY_TYPE_USERNAME, username),
-        )
-
-        for identity_type, value in identity_values:
-            if value is None:
-                continue
-
-            existing = self.identities.get_by_type_and_value(
-                identity_type,
-                value,
-            )
-
-            if existing is not None:
-                raise IdentityAlreadyExistsError(
-                    f"{identity_type} is already registered."
-                )
+        self._check_identity_conflicts(identity_values)
 
         public_id = self._generate_unique_public_id()
 
@@ -179,6 +144,57 @@ class UserService:
 
         return user
 
+    @staticmethod
+    def _prepare_identities(
+        request: UserCreateRequest,
+    ) -> tuple[tuple[str, str | None], ...]:
+        """Normalize registration identities and validate their presence."""
+        email = (
+            normalize_email(request.email)
+            if request.email is not None
+            else None
+        )
+        phone = (
+            normalize_phone(request.phone)
+            if request.phone is not None
+            else None
+        )
+        username = (
+            normalize_username(request.username)
+            if request.username is not None
+            else None
+        )
+
+        identity_values = (
+            (IDENTITY_TYPE_EMAIL, email),
+            (IDENTITY_TYPE_PHONE, phone),
+            (IDENTITY_TYPE_USERNAME, username),
+        )
+
+        if all(value is None for _, value in identity_values):
+            raise ValueError("At least one identity is required.")
+
+        return identity_values
+
+    def _check_identity_conflicts(
+        self,
+        identity_values: tuple[tuple[str, str | None], ...],
+    ) -> None:
+        """Reject identities that are already registered."""
+        for identity_type, value in identity_values:
+            if value is None:
+                continue
+
+            existing = self.identities.get_by_type_and_value(
+                identity_type,
+                value,
+            )
+
+            if existing is not None:
+                raise IdentityAlreadyExistsError(
+                    f"{identity_type} is already registered."
+                )
+
     def update_display_name(
         self,
         user_id: UUID,
@@ -198,4 +214,3 @@ class UserService:
                 return public_id
 
         raise RuntimeError("Unable to generate a unique public user ID.")
-    

@@ -109,4 +109,3 @@ class UserDetailResponse(UserResponse):
 
     profile: Any | None = None
     identities: list[ResolvedIdentity] = Field(default_factory=list)
-

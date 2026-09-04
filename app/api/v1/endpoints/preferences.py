@@ -191,4 +191,3 @@ def delete_current_preference(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Preference not found.",
         )
-    

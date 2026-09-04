@@ -1,3 +1,5 @@
+### `app/api/dependencies.py`
+
 """
 BuildOS User Service
 API dependencies and authentication.
@@ -36,7 +38,7 @@ async def verify_internal_service(
     api_key: str | None = internal_api_key_dependency,
     service_id: str | None = service_id_dependency,
 ) -> bool:
-    """Verify service-to-service authentication."""
+    """Verify service-to-service authentication and service identity."""
 
     if not api_key:
         raise HTTPException(
@@ -57,6 +59,12 @@ async def verify_internal_service(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
+        )
+
+    if service_id not in settings.allowed_service_ids:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Service identity not allowed",
         )
 
     return True

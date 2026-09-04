@@ -3,12 +3,15 @@ BuildOS User Service
 018 Auth Service Integration
 """
 
+import logging
 from uuid import UUID
 
 import httpx
 
 from app.core.config import settings
 from app.core.exceptions import IntegrationError
+
+logger = logging.getLogger(__name__)
 
 
 class AuthServiceClient:
@@ -124,6 +127,59 @@ class AuthServiceClient:
             raise IntegrationError(
                 "Unable to reach the Auth Service."
             ) from exc
+
+    async def update_user_status(
+        self,
+        *,
+        user_id: UUID,
+        status: str,
+        is_active: bool,
+    ) -> None:
+        """
+        Notify 018 that a user's status has changed.
+
+        019 owns the canonical user/account status.
+        018 synchronizes the authentication credential state.
+        """
+        url = self._url(
+            f"/api/v1/internal/auth/users/{user_id}/status"
+        )
+
+        payload = {
+            "user_id": str(user_id),
+            "status": status,
+            "is_active": is_active,
+        }
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.timeout,
+            ) as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers=self._headers(),
+                )
+
+            response.raise_for_status()
+
+        except httpx.HTTPStatusError as exc:
+            # Do not fail the 019 status transition if 018 is
+            # temporarily unavailable or rejects the request.
+            logger.warning(
+                "Failed to notify 018 of status change for user %s: %s",
+                user_id,
+                exc,
+            )
+
+        except httpx.RequestError as exc:
+            # A retry mechanism/queue can be added later for
+            # guaranteed delivery.
+            logger.warning(
+                "Network error notifying 018 of status change for user %s: %s",
+                user_id,
+                exc,
+            )
 
     async def notify_user_deleted(
         self,
